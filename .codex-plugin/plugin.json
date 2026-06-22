@@ -1,0 +1,20 @@
+{
+  "name": "codex-status-bar",
+  "version": "0.1.0",
+  "description": "Menu bar status indicator for the Codex CLI: animated spinner, elapsed timer, and an awaiting-approval dot.",
+  "author": { "name": "Codex Status Bar contributors" },
+  "homepage": "",
+  "repository": "",
+  "license": "MIT",
+  "keywords": ["codex", "menu bar", "macos", "status"],
+  "hooks": "./hooks/hooks.json",
+  "interface": {
+    "displayName": "Codex Status Bar",
+    "shortDescription": "Live Codex status in your menu bar.",
+    "longDescription": "Shows the Codex CLI's live status in the macOS menu bar — an animated spinner while it works, an amber dot while it awaits approval, and the elapsed turn timer. No window, no dock icon.",
+    "developerName": "Codex Status Bar contributors",
+    "category": "Productivity",
+    "capabilities": [],
+    "brandColor": "#4D8FFF"
+  }
+}
