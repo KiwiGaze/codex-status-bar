@@ -113,3 +113,27 @@ test("post without a preceding permission leaves pausedTotal at 0", () => {
   assert.equal(s.pausedTotal, 0, "pausedTotal stays 0 when no pause occurred");
   assert.equal(s.startedAt, t0, "turn start preserved");
 });
+
+test("lifecycle start purges states.d files older than 1h when app not running", () => {
+  using h = withTempHome();
+  const statesDir = path.join(h.home, ".codex", "statusbar", "states.d");
+  fs.mkdirSync(statesDir, { recursive: true });
+  // stale file (>1h)
+  const stale = path.join(statesDir, "old");
+  fs.writeFileSync(stale, "{}");
+  const old = Date.now() / 1000 - 3700;
+  fs.utimesSync(stale, old, old);
+  // fresh file
+  const fresh = path.join(statesDir, "fresh");
+  fs.writeFileSync(fresh, "{}");
+
+  const life = path.join(REPO, "hooks", "lifecycle.js");
+  const r = spawnSync(process.execPath, [life, "start"], {
+    input: JSON.stringify({ session_id: "new-sess" }),
+    env: { ...process.env, HOME: h.home, CODEX_STATUSBAR_TEST: "1" },
+    encoding: "utf8",
+  });
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(!fs.existsSync(stale), "stale state file should be removed");
+  assert.ok(fs.existsSync(fresh), "fresh state file should be kept");
+});
