@@ -27,7 +27,9 @@ const running = () => {
   if (testMode) return false; // headless test mode: assume app is down so the purge path runs
   try { cp.execSync(`pgrep -x ${EXEC}`, { stdio: "ignore" }); return true; } catch { return false; }
 };
-const safeId = (s) => String(s || "").replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 64) || "unknown";
+// Reject the bare "."/".." segments so a crafted session_id can't escape sessions.d via
+// path.join normalization.
+const safeId = (s) => { const c = String(s || "").replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 64); return (!c || c === "." || c === "..") ? "unknown" : c; };
 
 let input = "", done = false;
 process.stdin.on("data", (d) => (input += d));

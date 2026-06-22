@@ -19,7 +19,9 @@ const TOOL_LABELS = {
   spawn_agent: "Delegating", web_search: "Searching web",
 };
 const truncate = (s, n) => (s.length <= n ? s : s.slice(0, n));
-const safeId = (s) => String(s || "").replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 64) || "unknown";
+// Reject the bare "."/".." segments so a crafted session_id can't escape states.d via
+// path.join normalization; the raw id is still stored verbatim in the JSON content.
+const safeId = (s) => { const c = String(s || "").replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 64); return (!c || c === "." || c === "..") ? "unknown" : c; };
 
 let raw = "";
 process.stdin.on("data", (d) => (raw += d));

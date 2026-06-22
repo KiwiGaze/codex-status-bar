@@ -137,3 +137,23 @@ test("lifecycle start purges states.d files older than 1h when app not running",
   assert.ok(!fs.existsSync(stale), "stale state file should be removed");
   assert.ok(fs.existsSync(fresh), "fresh state file should be kept");
 });
+
+test("path-traversal session_id (\"..\" / \".\") is sanitized to a safe filename", () => {
+  using h = withTempHome();
+  const statesDir = path.join(h.home, ".codex", "statusbar", "states.d");
+
+  runHook(h.home, "prompt", { session_id: "..", cwd: "/p" });
+  runHook(h.home, "prompt", { session_id: ".", cwd: "/p" });
+
+  const names = fs.readdirSync(statesDir);
+  // Must never materialize the bare traversal segments as on-disk names, and must
+  // not escape states.d (the parent dir must contain no new stray files).
+  assert.ok(!names.includes(".."), "id '..' must not write to the parent dir");
+  assert.ok(!names.includes("."), "id '.' must not alias the states.d dir");
+  assert.ok(names.includes("unknown"), "traversal ids sanitized to 'unknown'");
+
+  // The RAW id is still preserved in the JSON content for display/pin (only the
+  // filename used as the dict key is sanitized).
+  const s = JSON.parse(fs.readFileSync(path.join(statesDir, "unknown"), "utf8"));
+  assert.ok(s.sessionId === ".." || s.sessionId === ".", "raw id preserved in content");
+});
