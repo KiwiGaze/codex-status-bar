@@ -345,7 +345,16 @@ final class StatusController: NSObject, NSMenuDelegate {
     func appendTimeoutLog(chosen: SessionState, age: TimeInterval) {
         let logPath = (NSHomeDirectory() as NSString).appendingPathComponent(".codex/statusbar/app.log")
         let line = "\(ISO8601DateFormatter().string(from: Date())) TIMEOUT session=\(chosen.sessionId) state=\(chosen.state) age=\(Int(age)) project=\(chosen.project)\n"
-        try? line.write(toFile: logPath, atomically: false, encoding: .utf8)
+        guard let data = line.data(using: .utf8) else { return }
+        // String.write(toFile:) replaces the file; use FileHandle to APPEND so each
+        // stuck episode is preserved for diagnostics rather than overwriting the last.
+        if let handle = FileHandle(forWritingAtPath: logPath) {
+            handle.seekToEndOfFile()
+            handle.write(data)
+            handle.closeFile()
+        } else {
+            try? data.write(to: URL(fileURLWithPath: logPath))
+        }
     }
 
     // MARK: self-quit lifecycle
