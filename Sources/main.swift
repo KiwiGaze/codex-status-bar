@@ -11,6 +11,7 @@ final class StatusController: NSObject, NSMenuDelegate {
     // sessionId -> (SessionState, file mtime observed). mtime lets tick() reload only changed files.
     var sessions: [String: (state: SessionState, mtime: Date)] = [:]
     var pinnedSession: String?
+    var pinnedDiedAt: Date?   // when the pinned session went stale; grey it for 5s before dropping
     var doneShownAt: [String: Date] = [:]   // per-session "Done" dismiss clocks
     var timeoutLogged: Set<String> = []    // sessionIds already logged as timed out (dedupe per stuck episode)
 
@@ -89,6 +90,9 @@ final class StatusController: NSObject, NSMenuDelegate {
         let openItem = NSMenuItem(title: "Open Codex", action: #selector(openCodex), keyEquivalent: "")
         openItem.target = self
         menu.addItem(openItem)
+
+        appendSessionsMenu(into: menu)
+
         menu.addItem(.separator())
 
         let timerItem = NSMenuItem(title: "Show timer", action: #selector(toggleTimer), keyEquivalent: "")
@@ -109,6 +113,69 @@ final class StatusController: NSObject, NSMenuDelegate {
         let q = NSMenuItem(title: "Quit Codex Status Bar", action: #selector(quit), keyEquivalent: "q")
         q.target = self
         menu.addItem(q)
+    }
+
+    func appendSessionsMenu(into menu: NSMenu) {
+        let now = Date().timeIntervalSince1970
+        let all = sessions.map { $0.value.state }
+        let ordered = menuOrder(pinned: pinnedSession, sessions: all, now: now, limit: 5)
+
+        // Track pinned death so the pinned item can be greyed for 5s before dropping.
+        let pinnedAlive = pinnedSession.flatMap { id in all.first { $0.sessionId == id }?.isAlive(now: now) } ?? false
+        if pinnedSession != nil, !pinnedAlive {
+            if pinnedDiedAt == nil { pinnedDiedAt = Date() }
+            if let died = pinnedDiedAt, Date().timeIntervalSince(died) > 5 {
+                pinnedSession = nil; pinnedDiedAt = nil
+                UserDefaults.standard.removeObject(forKey: "pinnedSession")
+            }
+        } else {
+            pinnedDiedAt = nil
+        }
+
+        if ordered.isEmpty {
+            // Even with no live sessions, a just-died pinned session gets a grey row.
+            // Look up by RAW sessionId (pinnedSession) — sessions is keyed by sanitized
+            // filename, so a direct subscript would miss ids with stripped chars.
+            if let p = pinnedSession, !pinnedAlive, let died = pinnedDiedAt,
+               Date().timeIntervalSince(died) <= 5, let st = all.first(where: { $0.sessionId == p }) {
+                menu.addItem(.separator())
+                let title = "● \(st.project.isEmpty ? st.sessionId : st.project) · ended"
+                let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+                item.isEnabled = false
+                menu.addItem(item)
+                menu.addItem(.separator())
+            }
+            return
+        }
+        // Stale-but-within-5s pinned session renders as a disabled grey row from its
+        // last-known state (menuOrder already excluded it). Prepend before live rows.
+        if let p = pinnedSession, !pinnedAlive, let died = pinnedDiedAt,
+           Date().timeIntervalSince(died) <= 5, let st = all.first(where: { $0.sessionId == p }) {
+            menu.addItem(.separator())
+            let title = "● \(st.project.isEmpty ? st.sessionId : st.project) · ended"
+            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            menu.addItem(item)
+        }
+        menu.addItem(.separator())
+        for st in ordered {
+            let isPinned = st.sessionId == pinnedSession
+            let title = "\(isPinned ? "● " : "")\(st.project.isEmpty ? st.sessionId : st.project) · \(st.label)"
+            let item = NSMenuItem(title: title, action: #selector(pinSession(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = st.sessionId
+            item.state = isPinned ? .on : .off
+            menu.addItem(item)
+        }
+        menu.addItem(.separator())
+    }
+
+    @objc func pinSession(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String else { return }
+        pinnedSession = (pinnedSession == id) ? nil : id
+        pinnedDiedAt = nil
+        UserDefaults.standard.set(pinnedSession, forKey: "pinnedSession")
+        evaluate()
     }
 
     @objc func quit() { NSApp.terminate(nil) }
