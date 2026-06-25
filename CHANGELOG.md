@@ -3,6 +3,17 @@
 All notable changes to Codex Status Bar are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- Global Codex app-server liveness no longer proves that a specific status-bar session is still active. Desktop/app-server-backed sessions now age out of the visible active state unless a fresh hook update arrives.
+- Bundled hook scripts reinstall when their resource fingerprint changes, even if a local development build keeps the same app version string.
+
+## [0.2.1] - 2026-06-23
+
+### Fixed
+- The elapsed timer no longer keeps counting after a session ends abnormally — quitting the VS Code/IDE extension or the desktop app, or closing the terminal, mid-turn. Codex fires no `Stop` hook on an abnormal exit, so the state file was stranded at a "thinking"/"tool" state with a live clock and the indicator kept advancing for up to 15 minutes (until the 900s stale window) whenever another `codex` process kept the app alive. The hook now records the owning `codex` process id, and the app drops any in-progress session whose owner has exited — within one poll — while leaving genuinely long, quiet turns running. Updating changes the hooks, so approve them again on the next `codex` start.
+
 ## [0.1.0] - 2026-06-22
 
 ### Added

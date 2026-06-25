@@ -15,10 +15,13 @@ struct SessionState {
     var pausedTotal: TimeInterval // seconds already spent awaiting permission this turn
     var pauseStart: TimeInterval  // unix seconds the current pause began; 0 = not paused
     var ts: TimeInterval          // unix seconds the writer last touched this file
+    var ownerPid: Int = 0
+    var ownerKind: String = "unknown"
 
     /// A session counts as alive while its writer has updated it within this window.
     /// Mirrors the 900s safety net in main.swift's evaluate().
     static let staleAfter: TimeInterval = 900
+    static let unreliableOwnerDisplayAfter: TimeInterval = 60
 }
 
 extension SessionState {
@@ -34,10 +37,35 @@ extension SessionState {
         self.pausedTotal = (json["pausedTotal"] as? NSNumber)?.doubleValue ?? 0
         self.pauseStart = (json["pauseStart"] as? NSNumber)?.doubleValue ?? 0
         self.ts = (json["ts"] as? NSNumber)?.doubleValue ?? 0
+        self.ownerPid = (json["ownerPid"] as? NSNumber)?.intValue ?? 0
+        self.ownerKind = (json["ownerKind"] as? String) ?? "unknown"
     }
 
     func isAlive(now: TimeInterval) -> Bool {
         now - ts <= SessionState.staleAfter
+    }
+
+    func hasReliableOwner() -> Bool {
+        ownerKind == "session" && ownerPid > 0
+    }
+
+    func isDisplayEligible(now: TimeInterval, ownerAlive: Bool) -> Bool {
+        guard isAlive(now: now) else { return false }
+        switch state {
+        case "thinking", "tool", "permission":
+            if hasReliableOwner() { return ownerAlive }
+            return now - ts <= SessionState.unreliableOwnerDisplayAfter
+        default:
+            return true
+        }
+    }
+
+    func endedByOwnerExit(ownerAlive: Bool) -> Bool {
+        guard hasReliableOwner() else { return false }
+        switch state {
+        case "thinking", "tool", "permission": return !ownerAlive
+        default: return false
+        }
     }
 }
 

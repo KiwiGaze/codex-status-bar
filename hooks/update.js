@@ -7,6 +7,7 @@
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const cp = require("child_process");
 
 const dir = path.join(os.homedir(), ".codex", "statusbar");
 const sessDir = path.join(dir, "sessions.d");
@@ -22,6 +23,41 @@ const truncate = (s, n) => (s.length <= n ? s : s.slice(0, n));
 // Reject the bare "."/".." segments so a crafted session_id can't escape states.d via
 // path.join normalization; the raw id is still stored verbatim in the JSON content.
 const safeId = (s) => { const c = String(s || "").replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 64); return (!c || c === "." || c === "..") ? "unknown" : c; };
+
+function classifyOwnerKind(args) {
+  return /(^|\s)app-server(\s|$)/.test(args) ? "global" : "session";
+}
+
+function forcedOwnerFromEnv() {
+  if (process.env.CODEX_STATUSBAR_TEST !== "1") return null;
+  const args = process.env.CODEX_STATUSBAR_TEST_OWNER_ARGS;
+  if (!args) return null;
+  const pid = Number(process.env.CODEX_STATUSBAR_TEST_OWNER_PID || 0);
+  return {
+    pid: Number.isFinite(pid) && pid > 0 ? pid : 0,
+    kind: classifyOwnerKind(args),
+  };
+}
+
+function ownerCodexProcess() {
+  const forced = forcedOwnerFromEnv();
+  if (forced) return forced;
+  try {
+    let pid = process.ppid;
+    for (let i = 0; i < 6 && pid > 1; i++) {
+      const out = cp.execFileSync("ps", ["-o", "ppid=,ucomm=,args=", "-p", String(pid)], { encoding: "utf8" }).trim();
+      const match = out.match(/^(\d+)\s+(\S+)\s+([\s\S]*)$/);
+      if (!match) break;
+      const ppid = parseInt(match[1], 10);
+      const ucomm = match[2];
+      const args = match[3] || "";
+      if (ucomm === "codex") return { pid, kind: classifyOwnerKind(args) };
+      if (!Number.isInteger(ppid) || ppid <= 1) break;
+      pid = ppid;
+    }
+  } catch {}
+  return { pid: 0, kind: "unknown" };
+}
 
 let raw = "";
 process.stdin.on("data", (d) => (raw += d));
@@ -78,10 +114,18 @@ process.stdin.on("end", () => {
       return;
   }
 
+  let ownerPid = prev.ownerPid || 0;
+  let ownerKind = prev.ownerKind || "unknown";
+  if (event === "prompt" || ownerKind === "unknown") {
+    const owner = ownerCodexProcess();
+    ownerPid = owner.pid;
+    ownerKind = owner.kind;
+  }
+
   const out = {
     state, label, tool: p.tool_name || "", project,
     sessionId: p.session_id || "", transcript: p.transcript_path || prev.transcript || "",
-    startedAt, pausedTotal, pauseStart, ts,
+    startedAt, pausedTotal, pauseStart, ts, ownerPid, ownerKind,
   };
   try {
     fs.mkdirSync(statesDir, { recursive: true });

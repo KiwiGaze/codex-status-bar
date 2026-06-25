@@ -65,21 +65,40 @@ final class StatusController: NSObject, NSMenuDelegate {
 
     // Wire up the Codex hooks ourselves by running the bundled installer, so the
     // user just drags the app in and opens it — no manual Terminal step. Runs on first
-    // install AND whenever the version changes, so upgrades pick up new/changed hooks and
-    // retire old artifacts. install.js is idempotent.
+    // install AND whenever the version or bundled hook resources change, so upgrades pick
+    // up new/changed hooks and retire old artifacts. install.js is idempotent.
     func ensureHooksInstalled() {
         let d = UserDefaults.standard
         let current = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? ""
-        guard d.string(forKey: "installedVersion") != current,
-              let installer = Bundle.main.path(forResource: "install", ofType: "js") else { return }
+        guard let installer = Bundle.main.path(forResource: "install", ofType: "js") else { return }
+        let fingerprint = "\(current)|\(hookInstallFingerprint(installer: installer))"
+        guard d.string(forKey: "installedHookFingerprint") != fingerprint else { return }
         DispatchQueue.global().async {
             let task = Process()
-            task.executableURL = URL(fileURLWithPath: "/bin/zsh") // login shell so `node` is on PATH
+            task.executableURL = URL(fileURLWithPath: "/bin/zsh")
             task.arguments = ["-lc", "node \"\(installer)\""]
             try? task.run()
             task.waitUntilExit()
-            if task.terminationStatus == 0 { UserDefaults.standard.set(current, forKey: "installedVersion") }
+            if task.terminationStatus == 0 {
+                UserDefaults.standard.set(current, forKey: "installedVersion")
+                UserDefaults.standard.set(fingerprint, forKey: "installedHookFingerprint")
+            }
         }
+    }
+
+    func hookInstallFingerprint(installer: String) -> String {
+        let resourceDir = (installer as NSString).deletingLastPathComponent
+        let names = ["install.js", "update.js", "lifecycle.js", "uninstall.js"]
+        return names.map { name in
+            let path = (resourceDir as NSString).appendingPathComponent(name)
+            guard let attrs = try? FileManager.default.attributesOfItem(atPath: path),
+                  let size = attrs[.size] as? NSNumber,
+                  let modified = attrs[.modificationDate] as? Date else {
+                return "\(name):missing"
+            }
+            let modifiedAt = String(format: "%.6f", modified.timeIntervalSince1970)
+            return "\(name):\(size.int64Value):\(modifiedAt)"
+        }.joined(separator: "|")
     }
 
     // MARK: menu
@@ -118,10 +137,11 @@ final class StatusController: NSObject, NSMenuDelegate {
     func appendSessionsMenu(into menu: NSMenu) {
         let now = Date().timeIntervalSince1970
         let all = sessions.map { $0.value.state }
-        let ordered = menuOrder(pinned: pinnedSession, sessions: all, now: now, limit: 5)
+        let live = all.filter { displayEligible($0, now: now) }
+        let ordered = menuOrder(pinned: pinnedSession, sessions: live, now: now, limit: 5)
 
         // Track pinned death so the pinned item can be greyed for 5s before dropping.
-        let pinnedAlive = pinnedSession.flatMap { id in all.first { $0.sessionId == id }?.isAlive(now: now) } ?? false
+        let pinnedAlive = pinnedSession.flatMap { id in live.first { $0.sessionId == id }?.isAlive(now: now) } ?? false
         if pinnedSession != nil, !pinnedAlive {
             if pinnedDiedAt == nil { pinnedDiedAt = Date() }
             if let died = pinnedDiedAt, Date().timeIntervalSince(died) > 5 {
@@ -132,30 +152,23 @@ final class StatusController: NSObject, NSMenuDelegate {
             pinnedDiedAt = nil
         }
 
+        var endedState: SessionState?
+        if let p = pinnedSession, !pinnedAlive, let died = pinnedDiedAt,
+           Date().timeIntervalSince(died) <= 5 {
+            endedState = all.first(where: { $0.sessionId == p })
+        }
+
         if ordered.isEmpty {
-            // Even with no live sessions, a just-died pinned session gets a grey row.
-            // Look up by RAW sessionId (pinnedSession) — sessions is keyed by sanitized
-            // filename, so a direct subscript would miss ids with stripped chars.
-            if let p = pinnedSession, !pinnedAlive, let died = pinnedDiedAt,
-               Date().timeIntervalSince(died) <= 5, let st = all.first(where: { $0.sessionId == p }) {
+            if let st = endedState {
                 menu.addItem(.separator())
-                let title = "● \(st.project.isEmpty ? st.sessionId : st.project) · ended"
-                let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-                item.isEnabled = false
-                menu.addItem(item)
+                menu.addItem(endedMenuItem(for: st))
                 menu.addItem(.separator())
             }
             return
         }
-        // Stale-but-within-5s pinned session renders as a disabled grey row from its
-        // last-known state (menuOrder already excluded it). Prepend before live rows.
-        if let p = pinnedSession, !pinnedAlive, let died = pinnedDiedAt,
-           Date().timeIntervalSince(died) <= 5, let st = all.first(where: { $0.sessionId == p }) {
+        if let st = endedState {
             menu.addItem(.separator())
-            let title = "● \(st.project.isEmpty ? st.sessionId : st.project) · ended"
-            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-            item.isEnabled = false
-            menu.addItem(item)
+            menu.addItem(endedMenuItem(for: st))
         }
         menu.addItem(.separator())
         for st in ordered {
@@ -168,6 +181,13 @@ final class StatusController: NSObject, NSMenuDelegate {
             menu.addItem(item)
         }
         menu.addItem(.separator())
+    }
+
+    func endedMenuItem(for st: SessionState) -> NSMenuItem {
+        let title = "● \(st.project.isEmpty ? st.sessionId : st.project) · ended"
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.isEnabled = false
+        return item
     }
 
     @objc func pinSession(_ sender: NSMenuItem) {
@@ -288,9 +308,24 @@ final class StatusController: NSObject, NSMenuDelegate {
         }
     }
 
+    func displayEligible(_ st: SessionState, now: TimeInterval) -> Bool {
+        let ownerAlive = st.ownerPid > 0 && processAlive(st.ownerPid)
+        return st.isDisplayEligible(now: now, ownerAlive: ownerAlive)
+    }
+
+    func ownerExited(_ st: SessionState) -> Bool {
+        st.endedByOwnerExit(ownerAlive: processAlive(st.ownerPid))
+    }
+
+    func processAlive(_ pid: Int) -> Bool {
+        guard pid > 0 else { return false }
+        if kill(pid_t(pid), 0) == 0 { return true }
+        return errno == EPERM
+    }
+
     func evaluate() {
         let now = Date().timeIntervalSince1970
-        let all = sessions.map { $0.value.state }
+        let all = sessions.map { $0.value.state }.filter { displayEligible($0, now: now) }
         guard let chosen = selectDisplay(pinned: pinnedSession, sessions: all, now: now) else {
             render(label: "", color: iconColor, animate: false, startedAt: 0,
                    pausedTotal: 0, pauseStart: 0)
@@ -304,11 +339,9 @@ final class StatusController: NSObject, NSMenuDelegate {
         // time a session reaches evaluate, it is alive and recent.
 
         switch state {
-        case "thinking":
-            render(label: label.isEmpty ? "Thinking…" : label, color: iconColor, animate: true,
-                   startedAt: chosen.startedAt, pausedTotal: chosen.pausedTotal, pauseStart: chosen.pauseStart)
-        case "tool":
-            render(label: label.isEmpty ? "Working…" : label, color: iconColor, animate: true,
+        case "thinking", "tool":
+            let fallback = state == "thinking" ? "Thinking…" : "Working…"
+            render(label: label.isEmpty ? fallback : label, color: iconColor, animate: true,
                    startedAt: chosen.startedAt, pausedTotal: chosen.pausedTotal, pauseStart: chosen.pauseStart)
         case "permission":
             // Timer stays visible but frozen at net time (spec §6.4). The amber dot

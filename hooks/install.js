@@ -40,23 +40,20 @@ const stripOurs = (arr) =>
     }))
     .filter((entry) => (entry.hooks || []).length > 0);
 
-const addUnmatched = (evt, command) => {
+const addHook = (evt, command, matched = false) => {
   obj.hooks[evt] = stripOurs(obj.hooks[evt]);
-  obj.hooks[evt].push({ hooks: [{ type: "command", command }] });
-};
-const addMatched = (evt, command) => {
-  obj.hooks[evt] = stripOurs(obj.hooks[evt]);
-  obj.hooks[evt].push({ matcher: "*", hooks: [{ type: "command", command }] });
+  const hook = { type: "command", command };
+  obj.hooks[evt].push(matched ? { matcher: "*", hooks: [hook] } : { hooks: [hook] });
 };
 
 // Lifecycle hook (launch the app on open; the app quits itself when no longer needed)
-addUnmatched("SessionStart", life("start"));
+addHook("SessionStart", life("start"));
 // Status hooks (drive the animation/label)
-addUnmatched("UserPromptSubmit", cmd("prompt"));
-addMatched("PreToolUse", cmd("pre"));
-addMatched("PostToolUse", cmd("post"));
-addUnmatched("PermissionRequest", cmd("permission"));
-addUnmatched("Stop", cmd("stop"));
+addHook("UserPromptSubmit", cmd("prompt"));
+addHook("PreToolUse", cmd("pre"), true);
+addHook("PostToolUse", cmd("post"), true);
+addHook("PermissionRequest", cmd("permission"));
+addHook("Stop", cmd("stop"));
 
 fs.writeFileSync(hooksPath, JSON.stringify({ hooks: obj.hooks }, null, 2) + "\n");
 console.log("Installed status-bar hooks into", hooksPath);

@@ -13,10 +13,10 @@ function withTempHome() {
   return { home, [Symbol.dispose]: () => fs.rmSync(home, { recursive: true, force: true }) };
 }
 
-function runHook(home, event, payload) {
+function runHook(home, event, payload, extraEnv = {}) {
   return spawnSync(process.execPath, [HOOK, event], {
     input: JSON.stringify(payload),
-    env: { ...process.env, HOME: home },
+    env: { ...process.env, HOME: home, ...extraEnv },
     encoding: "utf8",
   });
 }
@@ -24,6 +24,15 @@ function runHook(home, event, payload) {
 function readState(home, sessionId) {
   const p = path.join(home, ".codex", "statusbar", "states.d", sessionId);
   return JSON.parse(fs.readFileSync(p, "utf8"));
+}
+
+function writeFakePs(home, output) {
+  const bin = path.join(home, "bin");
+  fs.mkdirSync(bin, { recursive: true });
+  const ps = path.join(bin, "ps");
+  fs.writeFileSync(ps, `#!/bin/sh\nprintf '%s\\n' '${output}'\n`);
+  fs.chmodSync(ps, 0o755);
+  return bin;
 }
 
 test("prompt writes per-session file with paused fields reset", () => {
@@ -36,6 +45,63 @@ test("prompt writes per-session file with paused fields reset", () => {
   assert.equal(s.pausedTotal, 0);
   assert.equal(s.pauseStart, 0);
   assert.ok(s.startedAt > 0);
+});
+
+test("prompt records owner pid and owner kind fields", () => {
+  using h = withTempHome();
+  runHook(h.home, "prompt", { session_id: "own-1", cwd: "/p" });
+  const s = readState(h.home, "own-1");
+  assert.equal(typeof s.ownerPid, "number", "ownerPid is written as a number");
+  assert.ok(s.ownerPid >= 0, "ownerPid is non-negative");
+  assert.equal(typeof s.ownerKind, "string", "ownerKind is written as a string");
+  assert.match(s.ownerKind, /^(session|global|unknown)$/);
+});
+
+test("app-server owner is recorded as global", () => {
+  using h = withTempHome();
+  runHook(h.home, "prompt", { session_id: "global-1", cwd: "/p" }, {
+    CODEX_STATUSBAR_TEST: "1",
+    CODEX_STATUSBAR_TEST_OWNER_PID: "1234",
+    CODEX_STATUSBAR_TEST_OWNER_ARGS: "/Applications/Codex.app/Contents/Resources/codex app-server --analytics-default-enabled",
+  });
+  const s = readState(h.home, "global-1");
+  assert.equal(s.ownerPid, 1234);
+  assert.equal(s.ownerKind, "global");
+});
+
+test("plain codex owner is recorded as session", () => {
+  using h = withTempHome();
+  runHook(h.home, "prompt", { session_id: "session-1", cwd: "/p" }, {
+    CODEX_STATUSBAR_TEST: "1",
+    CODEX_STATUSBAR_TEST_OWNER_PID: "2345",
+    CODEX_STATUSBAR_TEST_OWNER_ARGS: "codex --sandbox workspace-write",
+  });
+  const s = readState(h.home, "session-1");
+  assert.equal(s.ownerPid, 2345);
+  assert.equal(s.ownerKind, "session");
+});
+
+test("forced owner env is ignored outside test mode", () => {
+  using h = withTempHome();
+  const bin = writeFakePs(h.home, "1 codex codex --sandbox workspace-write");
+  runHook(h.home, "prompt", { session_id: "guard-1", cwd: "/p" }, {
+    CODEX_STATUSBAR_TEST_OWNER_PID: "9999",
+    CODEX_STATUSBAR_TEST_OWNER_ARGS: "/Applications/Codex.app/Contents/Resources/codex app-server --analytics-default-enabled",
+    PATH: `${bin}${path.delimiter}${process.env.PATH}`,
+  });
+  const s = readState(h.home, "guard-1");
+  assert.notEqual(s.ownerPid, 9999);
+  assert.equal(s.ownerKind, "session");
+});
+
+test("ps owner output records app-server owner as global", () => {
+  using h = withTempHome();
+  const bin = writeFakePs(h.home, "1 codex /Applications/Codex.app/Contents/Resources/codex app-server --analytics-default-enabled");
+  runHook(h.home, "prompt", { session_id: "ps-global-1", cwd: "/p" }, {
+    PATH: `${bin}${path.delimiter}${process.env.PATH}`,
+  });
+  const s = readState(h.home, "ps-global-1");
+  assert.equal(s.ownerKind, "global");
 });
 
 test("two sessions do not overwrite each other", () => {

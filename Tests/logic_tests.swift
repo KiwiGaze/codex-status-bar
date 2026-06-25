@@ -23,6 +23,40 @@ eq(elapsedSeconds(now: now, startedAt: now - 100, pausedTotal: 30, pauseStart: n
 eq(elapsedSeconds(now: now, startedAt: 0, pausedTotal: 0, pauseStart: 0), 0, "no startedAt -> 0")
 eq(elapsedSeconds(now: now, startedAt: now + 50, pausedTotal: 0, pauseStart: 0), 0, "future startedAt clamps to 0")
 
+// ---- display eligibility: global owners cannot keep old active sessions visible ----
+func owned(_ state: String, _ pid: Int, _ ownerKind: String, _ age: TimeInterval = 0) -> SessionState {
+    SessionState(state: state, label: "", tool: "", project: "", sessionId: "o", transcript: "", startedAt: 1, pausedTotal: 0, pauseStart: 0, ts: now - age, ownerPid: pid, ownerKind: ownerKind)
+}
+
+check(owned("thinking", 4242, "session").endedByOwnerExit(ownerAlive: false), "thinking + dead session owner -> ended")
+check(!owned("thinking", 4242, "session").endedByOwnerExit(ownerAlive: true), "thinking + live session owner -> not ended")
+check(!owned("thinking", 4242, "global").endedByOwnerExit(ownerAlive: false), "global owner is not a session owner exit")
+check(!owned("done", 4242, "session").endedByOwnerExit(ownerAlive: false), "done is never ended by owner exit")
+check(!owned("thinking", 0, "unknown").endedByOwnerExit(ownerAlive: false), "unknown owner -> freshness governs")
+
+check(owned("thinking", 4242, "session").isDisplayEligible(now: now, ownerAlive: true), "live session owner keeps active state eligible")
+check(!owned("thinking", 4242, "session").isDisplayEligible(now: now, ownerAlive: false), "dead session owner removes active state")
+check(owned("tool", 79378, "global", 30).isDisplayEligible(now: now, ownerAlive: true), "recent global owner active state stays briefly visible")
+check(!owned("tool", 79378, "global", 61).isDisplayEligible(now: now, ownerAlive: true), "old global owner active state stops displaying")
+check(owned("permission", 0, "unknown", 30).isDisplayEligible(now: now, ownerAlive: false), "recent unknown owner active state stays briefly visible")
+check(!owned("permission", 0, "unknown", 61).isDisplayEligible(now: now, ownerAlive: false), "old unknown owner active state stops displaying")
+check(owned("done", 0, "unknown", 600).isDisplayEligible(now: now, ownerAlive: false), "recent done state remains selectable for done rendering")
+check(!owned("done", 0, "unknown", 901).isDisplayEligible(now: now, ownerAlive: false), "stale done state is not selectable")
+
+if let parsedOwner = SessionState(json: ["state": "thinking", "ownerKind": "session", "ownerPid": 123]) {
+    eq(parsedOwner.ownerKind, "session", "json ownerKind parses")
+    eq(parsedOwner.ownerPid, 123, "json ownerPid parses")
+} else {
+    check(false, "json with owner fields parses")
+}
+
+if let parsedDefaultOwner = SessionState(json: ["state": "thinking"]) {
+    eq(parsedDefaultOwner.ownerKind, "unknown", "missing json ownerKind defaults to unknown")
+    eq(parsedDefaultOwner.ownerPid, 0, "missing json ownerPid defaults to 0")
+} else {
+    check(false, "json without owner fields parses")
+}
+
 // ---- selectDisplay: pinned wins if alive, else most recent alive, else nil ----
 let sA = SessionState(state: "thinking", label: "A", tool: "", project: "A", sessionId: "a", transcript: "", startedAt: 1, pausedTotal: 0, pauseStart: 0, ts: now - 5)
 let sB = SessionState(state: "tool", label: "B", tool: "Bash", project: "B", sessionId: "b", transcript: "", startedAt: 1, pausedTotal: 0, pauseStart: 0, ts: now - 1)
