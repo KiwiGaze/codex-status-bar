@@ -9,8 +9,11 @@ BIN="$APP/Contents/MacOS/CodexStatusBar"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 
-echo "Compiling…"
-swiftc -O Sources/*.swift -o "$BIN" -framework Cocoa
+echo "Compiling (universal, macOS 12+)…"
+swiftc -O -target arm64-apple-macos12.0  Sources/*.swift -o "$BIN.arm64"  -framework Cocoa
+swiftc -O -target x86_64-apple-macos12.0 Sources/*.swift -o "$BIN.x86_64" -framework Cocoa
+lipo -create "$BIN.arm64" "$BIN.x86_64" -o "$BIN"
+rm "$BIN.arm64" "$BIN.x86_64"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
