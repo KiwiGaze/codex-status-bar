@@ -31,10 +31,12 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 </plist>
 PLIST
 
-# Bundle the hook scripts (so first-launch self-install works) and the app icon.
+# Bundle the hook scripts (so first-launch self-install works), the app icon,
+# and the license notices.
 mkdir -p "$APP/Contents/Resources"
 cp hooks/update.js hooks/lifecycle.js hooks/install.js hooks/uninstall.js "$APP/Contents/Resources/"
 cp assets/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+cp NOTICE LICENSE "$APP/Contents/Resources/"
 
 # --- Signing / notarization ---
 # For a clean (no Gatekeeper warning) release, set up once on this Mac:

@@ -101,7 +101,7 @@ This is an unofficial, open-source project. **It is not affiliated with, endorse
 
 ## Credits
 
-Inspired by [Claude Status Bar](https://github.com/m1ckc3s/claude-status-bar) by Mick Cesanek — a menu bar status indicator for Claude Code. Codex Status Bar takes that idea and reworks it for the Codex CLI's hook system, with an original visual identity and an implementation retargeted to Codex.
+Based on the MIT-licensed [Claude Status Bar](https://github.com/m1ckc3s/claude-status-bar) by Mick Cesanek — a menu bar status indicator for Claude Code (see [NOTICE](NOTICE)). Codex Status Bar adapts its build script, hook scripts, and menu bar app for the Codex CLI's hook system, with an original visual identity.
 
 ## License
 
