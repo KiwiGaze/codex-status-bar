@@ -73,16 +73,32 @@ final class StatusController: NSObject, NSMenuDelegate {
         guard let installer = Bundle.main.path(forResource: "install", ofType: "js") else { return }
         let fingerprint = "\(current)|\(hookInstallFingerprint(installer: installer))"
         guard d.string(forKey: "installedHookFingerprint") != fingerprint else { return }
-        DispatchQueue.global().async {
+        DispatchQueue.global().async { [weak self] in
             let task = Process()
             task.executableURL = URL(fileURLWithPath: "/bin/zsh")
-            task.arguments = ["-lc", "node \"\(installer)\""]
-            try? task.run()
+            // GUI apps don't inherit a terminal PATH and `zsh -lc` skips ~/.zshrc, so node
+            // from nvm/fnm/asdf may be missing — prepend the common Homebrew locations as a
+            // best-effort, and surface a clear alert when node still isn't found.
+            task.arguments = ["-lc", "PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\" node \"\(installer)\""]
+            do { try task.run() } catch { self?.showInstallerFailure(installer: installer); return }
             task.waitUntilExit()
             if task.terminationStatus == 0 {
-                UserDefaults.standard.set(current, forKey: "installedVersion")
                 UserDefaults.standard.set(fingerprint, forKey: "installedHookFingerprint")
+            } else {
+                self?.showInstallerFailure(installer: installer)
             }
+        }
+    }
+
+    func showInstallerFailure(installer: String) {
+        DispatchQueue.main.async {
+            NSApp.activate(ignoringOtherApps: true)
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = "Codex Status Bar couldn’t set up its hooks"
+            alert.informativeText = "Node.js wasn’t found on the app’s PATH, so the Codex hooks were not installed. Open Terminal and run:\n\nnode \"\(installer)\"\n\nThen start codex and approve the hooks."
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
         }
     }
 
@@ -311,10 +327,6 @@ final class StatusController: NSObject, NSMenuDelegate {
     func displayEligible(_ st: SessionState, now: TimeInterval) -> Bool {
         let ownerAlive = st.ownerPid > 0 && processAlive(st.ownerPid)
         return st.isDisplayEligible(now: now, ownerAlive: ownerAlive)
-    }
-
-    func ownerExited(_ st: SessionState) -> Bool {
-        st.endedByOwnerExit(ownerAlive: processAlive(st.ownerPid))
     }
 
     func processAlive(_ pid: Int) -> Bool {
