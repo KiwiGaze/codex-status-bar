@@ -5,6 +5,7 @@ cd "$(dirname "$0")"
 
 APP="build/Codex Status Bar.app"
 BIN="$APP/Contents/MacOS/CodexStatusBar"
+VERSION="${VERSION:-0.2.2}"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
@@ -15,7 +16,7 @@ swiftc -O -target x86_64-apple-macos12.0 Sources/*.swift -o "$BIN.x86_64" -frame
 lipo -create "$BIN.arm64" "$BIN.x86_64" -o "$BIN"
 rm "$BIN.arm64" "$BIN.x86_64"
 
-cat > "$APP/Contents/Info.plist" <<'PLIST'
+cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -24,8 +25,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>CFBundleDisplayName</key><string>Codex Status Bar</string>
   <key>CFBundleIdentifier</key><string>io.github.kiwigaze.codexstatusbar</string>
   <key>CFBundleExecutable</key><string>CodexStatusBar</string>
-  <key>CFBundleVersion</key><string>0.2.2</string>
-  <key>CFBundleShortVersionString</key><string>0.2.2</string>
+  <key>CFBundleVersion</key><string>${VERSION}</string>
+  <key>CFBundleShortVersionString</key><string>${VERSION}</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>LSMinimumSystemVersion</key><string>12.0</string>
   <key>LSUIElement</key><true/>
@@ -53,8 +54,12 @@ cp NOTICE LICENSE "$APP/Contents/Resources/"
 TEAM_ID="${TEAM_ID:-}"
 NOTARY_PROFILE="${NOTARY_PROFILE:-codex-statusbar}"
 
-SIGN_ID="$(security find-identity -v -p codesigning 2>/dev/null \
-  | grep "Developer ID Application" | grep "$TEAM_ID" | head -1 | sed -E 's/.*"(.*)"/\1/' || true)"
+if [[ -z "$TEAM_ID" ]]; then
+  SIGN_ID=""
+else
+  SIGN_ID="$(security find-identity -v -p codesigning 2>/dev/null \
+    | grep "Developer ID Application" | grep "$TEAM_ID" | head -1 | sed -E 's/.*"(.*)"/\1/' || true)"
+fi
 
 if [[ -n "$SIGN_ID" ]]; then
   echo "Signing with Developer ID: $SIGN_ID"
