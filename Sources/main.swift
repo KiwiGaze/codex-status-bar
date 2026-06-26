@@ -96,7 +96,7 @@ final class StatusController: NSObject, NSMenuDelegate {
             let alert = NSAlert()
             alert.alertStyle = .warning
             alert.messageText = "Codex Status Bar couldn’t set up its hooks"
-            alert.informativeText = "Node.js wasn’t found on the app’s PATH, so the Codex hooks were not installed. Open Terminal and run:\n\nnode \"\(installer)\"\n\nThen start codex and approve the hooks."
+            alert.informativeText = "The Codex hooks weren’t installed — Node.js may not be on the app’s PATH. Open Terminal and run:\n\nnode \"\(installer)\"\n\nThen start codex and approve the hooks."
             alert.addButton(withTitle: "OK")
             alert.runModal()
         }
