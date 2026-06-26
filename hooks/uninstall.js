@@ -12,7 +12,7 @@ const home = os.homedir();
 const MARKER = path.join(home, ".codex", "statusbar");
 const hooksPath = path.join(home, ".codex", "hooks.json");
 
-try { cp.execSync("pkill -x CodexStatusBar", { stdio: "ignore" }); } catch {}
+try { cp.execFileSync("pkill", ["-x", "CodexStatusBar"], { stdio: "ignore" }); } catch {}
 
 if (!fs.existsSync(hooksPath)) { console.log("No hooks.json; nothing to do."); process.exit(0); }
 

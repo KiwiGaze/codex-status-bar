@@ -20,8 +20,8 @@ fs.mkdirSync(sbDir, { recursive: true });
 fs.copyFileSync(path.join(__dirname, "update.js"), updateDest);
 fs.copyFileSync(path.join(__dirname, "lifecycle.js"), lifecycleDest);
 
-const cmd = (evt) => `${node} ${updateDest} ${evt}`;
-const life = (evt) => `${node} ${lifecycleDest} ${evt}`;
+const cmd = (evt) => `"${node}" "${updateDest}" ${evt}`;
+const life = (evt) => `"${node}" "${lifecycleDest}" ${evt}`;
 
 let obj = { hooks: {} };
 let backedUp = false;

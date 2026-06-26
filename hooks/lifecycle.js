@@ -25,7 +25,7 @@ fs.mkdirSync(sessDir, { recursive: true });
 
 const running = () => {
   if (testMode) return false; // headless test mode: assume app is down so the purge path runs
-  try { cp.execSync(`pgrep -x ${EXEC}`, { stdio: "ignore" }); return true; } catch { return false; }
+  try { cp.execFileSync("pgrep", ["-x", EXEC], { stdio: "ignore" }); return true; } catch { return false; }
 };
 // Reject the bare "."/".." segments so a crafted session_id can't escape sessions.d via
 // path.join normalization.
