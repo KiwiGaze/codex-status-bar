@@ -485,6 +485,7 @@ final class StatusController: NSObject, NSMenuDelegate {
         }
         applyTitle()
         if button.image == nil { button.image = done ? checkIcon(color: color) : (dot ? dotIcon(color: color) : restingIcon(color: color)) }
+        button.setAccessibilityLabel(label.isEmpty ? "Codex status: idle" : "Codex status: \(label)")
     }
 
     // Reproduce the thinking animation: step through the frame masks.
