@@ -3,11 +3,17 @@
 All notable changes to Codex Status Bar are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.2.2] - 2026-06-26
+
+### Changed
+- The release binary is now a universal build (Intel and Apple Silicon) targeting macOS 12, so it runs on every Mac the project advertises instead of only the build machine's architecture and OS version.
+- Documented that the build script, hook scripts, and menu bar app derive from the MIT-licensed claude-status-bar by Mick Cesanek; the upstream license is reproduced in NOTICE and bundled into the app and DMG.
 
 ### Fixed
 - Global Codex app-server liveness no longer proves that a specific status-bar session is still active. Desktop/app-server-backed sessions now age out of the visible active state unless a fresh hook update arrives.
 - Bundled hook scripts reinstall when their resource fingerprint changes, even if a local development build keeps the same app version string.
+- Session ids containing path-traversal segments ("." / "..") are sanitized before being used as state-file names.
+- The hook timeout log is appended to rather than overwritten, preserving prior timeout records.
 
 ## [0.2.1] - 2026-06-23
 
