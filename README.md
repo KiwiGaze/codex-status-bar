@@ -76,7 +76,8 @@ The hook scripts run locally and make **no network requests**. On each Codex eve
 `session_id`, the current working directory (only its basename, shown as the project name),
 `tool_name`, and `transcript_path`, and they write status files under `~/.codex/statusbar/`
 (`states.d/`, `sessions.d/`). Setting `CODEX_STATUSBAR_DEBUG=1` additionally appends tool
-names and payload keys to `~/.codex/statusbar/hooks.log`. Nothing leaves your machine.
+names and payload keys to `~/.codex/statusbar/hooks.log`. The app itself also appends turn-timeout
+records to `~/.codex/statusbar/app.log`. Nothing leaves your machine.
 
 To remove everything: run the uninstaller (below) and delete `~/.codex/statusbar/`.
 

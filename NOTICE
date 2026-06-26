@@ -7,12 +7,12 @@ The build script (build.sh), the Codex hook scripts (hooks/*.js), and the menu
 bar application (Sources/main.swift) are adapted from that project. The visual
 identity (icons and rendered status art) is original to Codex Status Bar.
 
-The full text of the upstream MIT License is reproduced below, as required by
-its terms.
-
 Codex Status Bar is an unofficial project and is not affiliated with, endorsed by, or
 sponsored by OpenAI. The name "Codex" is used only to describe interoperability with the
 Codex CLI.
+
+The full text of the upstream MIT License is reproduced below, as required by
+its terms.
 
 ================================================================================
 claude-status-bar — https://github.com/m1ckc3s/claude-status-bar

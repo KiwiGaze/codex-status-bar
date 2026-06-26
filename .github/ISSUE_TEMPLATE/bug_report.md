@@ -11,8 +11,8 @@ labels: bug
 
 **Environment**
 - macOS version:
-- Install method (DMG / Homebrew / build from source):
-- App version (Codex Status Bar > version):
+- Install method (DMG / Codex plugin / build from source):
+- App version (right-click the app in Finder → Get Info, or the release/DMG name):
 - `codex --version`:
 - Surface (CLI / desktop app / VS Code extension):
 - Did you approve the hooks in the Codex startup trust review? (yes/no)
