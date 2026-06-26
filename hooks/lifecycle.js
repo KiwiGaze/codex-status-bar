@@ -14,7 +14,7 @@ const os = require("os");
 const path = require("path");
 const cp = require("child_process");
 
-const BUNDLE_ID = "com.local.codexstatusbar";
+const BUNDLE_ID = "io.github.kiwigaze.codexstatusbar";
 const EXEC = "CodexStatusBar";
 const dir = path.join(os.homedir(), ".codex", "statusbar");
 const sessDir = path.join(dir, "sessions.d");
