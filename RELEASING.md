@@ -1,11 +1,11 @@
 # Releasing
 
 1. Update `CHANGELOG.md`: move changes under a new `## [x.y.z] - YYYY-MM-DD` section and add the release tag link (`[x.y.z]: https://github.com/KiwiGaze/codex-status-bar/releases/tag/vx.y.z`), matching CHANGELOG's existing style.
-2. Bump the version: `VERSION=x.y.z` is read by `build.sh`; confirm `.codex-plugin/plugin.json` matches.
+2. Bump the version in `.codex-plugin/plugin.json` — `build.sh` reads it from there (override with `VERSION=x.y.z` if needed).
 3. Build the signed, notarized, universal DMG:
    ```bash
    export TEAM_ID=<your Developer ID team id>
-   NOTARY_PROFILE=codex-statusbar VERSION=x.y.z ./build.sh --dmg
+   NOTARY_PROFILE=codex-statusbar ./build.sh --dmg
    ```
 4. Validate the artifact:
    ```bash

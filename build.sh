@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 
 APP="build/Codex Status Bar.app"
 BIN="$APP/Contents/MacOS/CodexStatusBar"
-VERSION="${VERSION:-0.2.2}"
+VERSION="${VERSION:-$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' .codex-plugin/plugin.json | head -1)}"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
@@ -54,9 +54,8 @@ cp NOTICE LICENSE "$APP/Contents/Resources/"
 TEAM_ID="${TEAM_ID:-}"
 NOTARY_PROFILE="${NOTARY_PROFILE:-codex-statusbar}"
 
-if [[ -z "$TEAM_ID" ]]; then
-  SIGN_ID=""
-else
+SIGN_ID=""
+if [[ -n "$TEAM_ID" ]]; then
   SIGN_ID="$(security find-identity -v -p codesigning 2>/dev/null \
     | grep "Developer ID Application" | grep "$TEAM_ID" | head -1 | sed -E 's/.*"(.*)"/\1/' || true)"
 fi

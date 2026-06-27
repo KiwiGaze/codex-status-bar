@@ -34,6 +34,15 @@ function ourCommands(hooksObj) {
   return out;
 }
 
+const OTHER_HOOKS = { hooks: { Stop: [{ hooks: [{ type: "command", command: "echo other" }] }] } };
+
+function seedHooks(home, obj) {
+  const codexDir = path.join(home, ".codex");
+  fs.mkdirSync(codexDir, { recursive: true });
+  fs.writeFileSync(path.join(codexDir, "hooks.json"), JSON.stringify(obj) + "\n");
+  return codexDir;
+}
+
 test("install merges our hooks and quotes interpolated paths (M6)", () => {
   using h = withTempHome();
   const r = run(INSTALL, h.home);
@@ -50,11 +59,7 @@ test("install merges our hooks and quotes interpolated paths (M6)", () => {
 
 test("install is idempotent and preserves unrelated hooks", () => {
   using h = withTempHome();
-  const codexDir = path.join(h.home, ".codex");
-  fs.mkdirSync(codexDir, { recursive: true });
-  fs.writeFileSync(path.join(codexDir, "hooks.json"), JSON.stringify({
-    hooks: { Stop: [{ hooks: [{ type: "command", command: "echo other" }] }] },
-  }) + "\n");
+  seedHooks(h.home, OTHER_HOOKS);
 
   assert.equal(run(INSTALL, h.home).status, 0);
   assert.equal(run(INSTALL, h.home).status, 0);
@@ -67,9 +72,7 @@ test("install is idempotent and preserves unrelated hooks", () => {
 
 test("install creates the .bak-statusbar backup exactly once", () => {
   using h = withTempHome();
-  const codexDir = path.join(h.home, ".codex");
-  fs.mkdirSync(codexDir, { recursive: true });
-  fs.writeFileSync(path.join(codexDir, "hooks.json"), JSON.stringify({ hooks: {} }) + "\n");
+  const codexDir = seedHooks(h.home, { hooks: {} });
   run(INSTALL, h.home);
   const bak = path.join(codexDir, "hooks.json.bak-statusbar");
   assert.ok(fs.existsSync(bak), "backup created on first run");
@@ -80,11 +83,7 @@ test("install creates the .bak-statusbar backup exactly once", () => {
 
 test("uninstall removes only our hooks and drops emptied event arrays", () => {
   using h = withTempHome();
-  const codexDir = path.join(h.home, ".codex");
-  fs.mkdirSync(codexDir, { recursive: true });
-  fs.writeFileSync(path.join(codexDir, "hooks.json"), JSON.stringify({
-    hooks: { Stop: [{ hooks: [{ type: "command", command: "echo other" }] }] },
-  }) + "\n");
+  seedHooks(h.home, OTHER_HOOKS);
   run(INSTALL, h.home);
   assert.equal(run(UNINSTALL, h.home).status, 0);
   const hooks = readHooks(h.home);

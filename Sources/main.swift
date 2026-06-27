@@ -80,9 +80,9 @@ final class StatusController: NSObject, NSMenuDelegate {
             // from nvm/fnm/asdf may be missing — prepend the common Homebrew locations as a
             // best-effort, and surface a clear alert when node still isn't found.
             task.arguments = ["-lc", "PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\" node \"\(installer)\""]
-            do { try task.run() } catch { self?.showInstallerFailure(installer: installer); return }
-            task.waitUntilExit()
-            if task.terminationStatus == 0 {
+            var installed = false
+            do { try task.run(); task.waitUntilExit(); installed = task.terminationStatus == 0 } catch {}
+            if installed {
                 UserDefaults.standard.set(fingerprint, forKey: "installedHookFingerprint")
             } else {
                 self?.showInstallerFailure(installer: installer)
@@ -485,7 +485,7 @@ final class StatusController: NSObject, NSMenuDelegate {
         }
         applyTitle()
         if button.image == nil { button.image = done ? checkIcon(color: color) : (dot ? dotIcon(color: color) : restingIcon(color: color)) }
-        button.setAccessibilityLabel(label.isEmpty ? "Codex status: idle" : "Codex status: \(label)")
+        button.setAccessibilityLabel("Codex status: \(label.isEmpty ? "idle" : label)")
     }
 
     // Reproduce the thinking animation: step through the frame masks.
