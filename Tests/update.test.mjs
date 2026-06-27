@@ -223,3 +223,30 @@ test("path-traversal session_id (\"..\" / \".\") is sanitized to a safe filename
   const s = JSON.parse(fs.readFileSync(path.join(statesDir, "unknown"), "utf8"));
   assert.ok(s.sessionId === ".." || s.sessionId === ".", "raw id preserved in content");
 });
+
+test("status directories, state files, session files, and debug logs are private under permissive umask", () => {
+  using h = withTempHome();
+  const priorUmask = process.umask(0o022);
+  try {
+    const r = runHook(h.home, "prompt", { session_id: "perm-1", cwd: "/p" }, {
+      CODEX_STATUSBAR_DEBUG: "1",
+    });
+    assert.equal(r.status, 0, r.stderr);
+  } finally {
+    process.umask(priorUmask);
+  }
+
+  const statusDir = path.join(h.home, ".codex", "statusbar");
+  const statesDir = path.join(statusDir, "states.d");
+  const sessionsDir = path.join(statusDir, "sessions.d");
+  const stateFile = path.join(statesDir, "perm-1");
+  const sessionFile = path.join(sessionsDir, "perm-1");
+  const hooksLog = path.join(statusDir, "hooks.log");
+
+  assert.equal(fs.statSync(statusDir).mode & 0o777, 0o700);
+  assert.equal(fs.statSync(statesDir).mode & 0o777, 0o700);
+  assert.equal(fs.statSync(sessionsDir).mode & 0o777, 0o700);
+  assert.equal(fs.statSync(stateFile).mode & 0o777, 0o600);
+  assert.equal(fs.statSync(sessionFile).mode & 0o777, 0o600);
+  assert.equal(fs.statSync(hooksLog).mode & 0o777, 0o600);
+});

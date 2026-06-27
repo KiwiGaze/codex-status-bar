@@ -1,7 +1,16 @@
 # Changelog
 
-All notable changes to Codex Status Bar are documented here. This project follows
+All notable changes to Codex Status Bar are documented here. The format is based on
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows
 [Semantic Versioning](https://semver.org/).
+
+## [0.2.3] - 2026-06-27
+
+### Fixed
+- Expired Done confirmations no longer hide an older active Codex session in the menu bar.
+- First-launch hook installation no longer interpolates the bundled installer path through a shell command.
+- Status files, session markers, debug logs, copied hook scripts, and Codex hook config writes now use private filesystem permissions.
+- Hook config updates now replace `~/.codex/hooks.json` atomically instead of rewriting it in place.
 
 ## [0.2.2] - 2026-06-26
 
@@ -20,6 +29,17 @@ All notable changes to Codex Status Bar are documented here. This project follow
 ### Fixed
 - The elapsed timer no longer keeps counting after a session ends abnormally — quitting the VS Code/IDE extension or the desktop app, or closing the terminal, mid-turn. Codex fires no `Stop` hook on an abnormal exit, so the state file was stranded at a "thinking"/"tool" state with a live clock and the indicator kept advancing for up to 15 minutes (until the 900s stale window) whenever another `codex` process kept the app alive. The hook now records the owning `codex` process id, and the app drops any in-progress session whose owner has exited — within one poll — while leaving genuinely long, quiet turns running. Updating changes the hooks, so approve them again on the next `codex` start.
 
+## [0.2.0] - 2026-06-23
+
+### Added
+- Multi-session rendering: the menu lists up to five active Codex sessions, with a
+  pin-to-track control to lock the menu bar to one session.
+- Net-time clock: the elapsed turn timer subtracts time spent awaiting approval, so it
+  reflects active work rather than wall-clock time.
+- Per-session state files (`states.d/<session_id>`), replacing the single shared
+  `state.json`, so concurrent sessions never overwrite each other.
+- A "Done" confirmation state and a hook timeout log.
+
 ## [0.1.0] - 2026-06-22
 
 ### Added
@@ -30,3 +50,6 @@ All notable changes to Codex Status Bar are documented here. This project follow
 - One-time hook trust: Codex reviews command hooks before running them, so the indicator stays idle until you approve the bundled hooks on the next `codex` start (documented in the README).
 - Accent (`#4D8FFF`) / System color toggle and an elapsed-timer toggle, persisted in preferences.
 - Signed and notarized DMG so it opens without a Gatekeeper warning, plus a Codex plugin manifest for the plugin install path.
+
+[0.2.3]: https://github.com/KiwiGaze/codex-status-bar/releases/tag/v0.2.3
+[0.2.2]: https://github.com/KiwiGaze/codex-status-bar/releases/tag/v0.2.2

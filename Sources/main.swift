@@ -73,16 +73,31 @@ final class StatusController: NSObject, NSMenuDelegate {
         guard let installer = Bundle.main.path(forResource: "install", ofType: "js") else { return }
         let fingerprint = "\(current)|\(hookInstallFingerprint(installer: installer))"
         guard d.string(forKey: "installedHookFingerprint") != fingerprint else { return }
-        DispatchQueue.global().async {
+        DispatchQueue.global().async { [weak self] in
+            let config = installerLaunchConfiguration(installer: installer)
             let task = Process()
-            task.executableURL = URL(fileURLWithPath: "/bin/zsh")
-            task.arguments = ["-lc", "node \"\(installer)\""]
-            try? task.run()
-            task.waitUntilExit()
-            if task.terminationStatus == 0 {
-                UserDefaults.standard.set(current, forKey: "installedVersion")
+            task.executableURL = URL(fileURLWithPath: config.executablePath)
+            task.arguments = config.arguments
+            task.environment = config.environment
+            var installed = false
+            do { try task.run(); task.waitUntilExit(); installed = task.terminationStatus == 0 } catch {}
+            if installed {
                 UserDefaults.standard.set(fingerprint, forKey: "installedHookFingerprint")
+            } else {
+                self?.showInstallerFailure(installer: installer)
             }
+        }
+    }
+
+    func showInstallerFailure(installer: String) {
+        DispatchQueue.main.async {
+            NSApp.activate(ignoringOtherApps: true)
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = "Codex Status Bar couldn’t set up its hooks"
+            alert.informativeText = "The Codex hooks weren’t installed — Node.js may not be on the app’s PATH. Open Terminal and run:\n\nnode \(shellQuoted(installer))\n\nThen start codex and approve the hooks."
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
         }
     }
 
@@ -313,10 +328,6 @@ final class StatusController: NSObject, NSMenuDelegate {
         return st.isDisplayEligible(now: now, ownerAlive: ownerAlive)
     }
 
-    func ownerExited(_ st: SessionState) -> Bool {
-        st.endedByOwnerExit(ownerAlive: processAlive(st.ownerPid))
-    }
-
     func processAlive(_ pid: Int) -> Bool {
         guard pid > 0 else { return false }
         if kill(pid_t(pid), 0) == 0 { return true }
@@ -326,7 +337,8 @@ final class StatusController: NSObject, NSMenuDelegate {
     func evaluate() {
         let now = Date().timeIntervalSince1970
         let all = sessions.map { $0.value.state }.filter { displayEligible($0, now: now) }
-        guard let chosen = selectDisplay(pinned: pinnedSession, sessions: all, now: now) else {
+        let doneTimes = doneShownAt.mapValues { $0.timeIntervalSince1970 }
+        guard let chosen = selectDisplay(pinned: pinnedSession, sessions: all, now: now, doneShownAt: doneTimes) else {
             render(label: "", color: iconColor, animate: false, startedAt: 0,
                    pausedTotal: 0, pauseStart: 0)
             return
@@ -364,9 +376,9 @@ final class StatusController: NSObject, NSMenuDelegate {
     // file still says "done", causing the green checkmark to flicker forever.
     // loadSessions prunes the entry when the session file disappears.
     func renderDone(chosen: SessionState, now: TimeInterval) {
-        if doneShownAt[chosen.sessionId] == nil { doneShownAt[chosen.sessionId] = Date(timeIntervalSince1970: now) }
-        let shownAt = doneShownAt[chosen.sessionId]?.timeIntervalSince1970 ?? now
-        if now - shownAt > 2 {
+        let shownAt = doneShownAt[chosen.sessionId]?.timeIntervalSince1970 ?? chosen.ts
+        doneShownAt[chosen.sessionId] = Date(timeIntervalSince1970: shownAt)
+        if now - shownAt > SessionState.doneVisibleFor {
             render(label: "", color: iconColor, animate: false,
                    startedAt: 0, pausedTotal: 0, pauseStart: 0)
             return
@@ -378,16 +390,7 @@ final class StatusController: NSObject, NSMenuDelegate {
     func appendTimeoutLog(chosen: SessionState, age: TimeInterval) {
         let logPath = (NSHomeDirectory() as NSString).appendingPathComponent(".codex/statusbar/app.log")
         let line = "\(ISO8601DateFormatter().string(from: Date())) TIMEOUT session=\(chosen.sessionId) state=\(chosen.state) age=\(Int(age)) project=\(chosen.project)\n"
-        guard let data = line.data(using: .utf8) else { return }
-        // String.write(toFile:) replaces the file; use FileHandle to APPEND so each
-        // stuck episode is preserved for diagnostics rather than overwriting the last.
-        if let handle = FileHandle(forWritingAtPath: logPath) {
-            handle.seekToEndOfFile()
-            handle.write(data)
-            handle.closeFile()
-        } else {
-            try? data.write(to: URL(fileURLWithPath: logPath))
-        }
+        appendPrivateLogLine(line, toPath: logPath)
     }
 
     // MARK: self-quit lifecycle
@@ -473,6 +476,7 @@ final class StatusController: NSObject, NSMenuDelegate {
         }
         applyTitle()
         if button.image == nil { button.image = done ? checkIcon(color: color) : (dot ? dotIcon(color: color) : restingIcon(color: color)) }
+        button.setAccessibilityLabel("Codex status: \(label.isEmpty ? "idle" : label)")
     }
 
     // Reproduce the thinking animation: step through the frame masks.

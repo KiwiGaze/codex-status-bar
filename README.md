@@ -53,7 +53,7 @@ Approval is tied to the exact contents of the hooks. **Updating the app can chan
 
 ## Install — DMG
 
-1. Download the latest `CodexStatusBar.dmg` from the project's Releases.
+1. Download the latest `CodexStatusBar.dmg` from the [Releases page](https://github.com/KiwiGaze/codex-status-bar/releases/latest).
 2. Open it and drag **Codex Status Bar** into Applications.
 3. Launch it once — on first launch it wires up the Codex hooks for you automatically (via the bundled installer).
 4. Start (or restart) `codex` and **trust the hooks** in the startup review (see [One-time setup](#one-time-setup-trust-the-hooks)). The spinner appears whenever Codex is running.
@@ -70,9 +70,20 @@ node "/Applications/Codex Status Bar.app/Contents/Resources/install.js"
 
 The repository ships a Codex plugin manifest under `.codex-plugin/`. Install it through Codex's plugin flow to wire up the hooks from inside Codex. You will still drag the app into Applications once (the plugin launches it on session start), and you will still trust the hooks on the next `codex` start.
 
+## Privacy — what the hooks read and write
+
+The hook scripts run locally and make **no network requests**. On each Codex event they read
+`session_id`, the current working directory (only its basename, shown as the project name),
+`tool_name`, and `transcript_path`, and they write status files under `~/.codex/statusbar/`
+(`states.d/`, `sessions.d/`). Setting `CODEX_STATUSBAR_DEBUG=1` additionally appends tool
+names and payload keys to `~/.codex/statusbar/hooks.log`. The app itself also appends turn-timeout
+records to `~/.codex/statusbar/app.log`. Nothing leaves your machine.
+
+To remove everything: run the uninstaller (below) and delete `~/.codex/statusbar/`.
+
 ## How it works
 
-Codex fires hooks on its lifecycle events. Small Node scripts write the current status to `~/.codex/statusbar/state.json`; the menu bar app polls that file and renders the spinner, label, and timer.
+Codex fires hooks on its lifecycle events. Small Node scripts write the current status to per-session files under `~/.codex/statusbar/states.d/`; the menu bar app polls them and renders the spinner, label, and timer.
 
 The `SessionStart` hook launches the app. Codex has no `SessionEnd` event, so the app decides for itself when to leave: it **stays while a `codex` process is running** — a CLI session, `codex exec`, or the app-server that backs the desktop app and the VS Code extension — and **rests quietly (just the icon) when idle**. It quits a few seconds after Codex fully closes (no `codex` process and no recently-active session). So if you keep the Codex desktop app open, the indicator stays too (resting when idle); on a CLI-only machine it comes and goes with your `codex` sessions.
 
@@ -95,6 +106,18 @@ Then drag the app to the Trash.
 
 Requires the Xcode Command Line Tools (`xcode-select --install`).
 
+## Development
+
+Run the tests:
+
+```bash
+node --test Tests/install.test.mjs
+node --test Tests/update.test.mjs
+swiftc Tests/logic_tests.swift Sources/SessionState.swift -o /tmp/csbt && /tmp/csbt
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the build, formatting, and PR workflow.
+
 ## Not affiliated
 
 This is an unofficial, open-source project. **It is not affiliated with, endorsed by, or sponsored by OpenAI.** The name "Codex" is used only to describe interoperability with the Codex CLI.
@@ -105,4 +128,4 @@ Based on the MIT-licensed [Claude Status Bar](https://github.com/m1ckc3s/claude-
 
 ## License
 
-MIT
+[MIT](LICENSE)

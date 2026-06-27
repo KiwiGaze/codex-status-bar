@@ -1,0 +1,25 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request: {}
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Build (ad-hoc, no notarization)
+        run: SKIP_NOTARIZE=1 ./build.sh
+      - name: Swift logic tests
+        run: |
+          swiftc Tests/logic_tests.swift Sources/SessionState.swift Sources/AppSupport.swift -o "$RUNNER_TEMP/csbt"
+          "$RUNNER_TEMP/csbt"
+      - name: Node tests
+        run: |
+          node --test Tests/install.test.mjs
+          node --test Tests/update.test.mjs
+      - name: JS syntax check
+        run: node --check hooks/install.js && node --check hooks/lifecycle.js && node --check hooks/uninstall.js && node --check hooks/update.js

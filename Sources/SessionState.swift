@@ -22,6 +22,7 @@ struct SessionState {
     /// Mirrors the 900s safety net in main.swift's evaluate().
     static let staleAfter: TimeInterval = 900
     static let unreliableOwnerDisplayAfter: TimeInterval = 60
+    static let doneVisibleFor: TimeInterval = 2
 }
 
 extension SessionState {
@@ -60,6 +61,11 @@ extension SessionState {
         }
     }
 
+    func isRenderable(now: TimeInterval, doneShownAt: TimeInterval?) -> Bool {
+        guard state == "done" else { return true }
+        return now - (doneShownAt ?? ts) <= SessionState.doneVisibleFor
+    }
+
     func endedByOwnerExit(ownerAlive: Bool) -> Bool {
         guard hasReliableOwner() else { return false }
         switch state {
@@ -86,8 +92,8 @@ func elapsedSeconds(now: TimeInterval, startedAt: TimeInterval, pausedTotal: Tim
 /// therefore make the displayed session jump between ticks — an inherent cost of the
 /// click-to-pin model; pinning is the escape hatch when stable focus is needed.
 /// Pure.
-func selectDisplay(pinned: String?, sessions: [SessionState], now: TimeInterval) -> SessionState? {
-    let alive = sessions.filter { $0.isAlive(now: now) }
+func selectDisplay(pinned: String?, sessions: [SessionState], now: TimeInterval, doneShownAt: [String: TimeInterval] = [:]) -> SessionState? {
+    let alive = sessions.filter { $0.isAlive(now: now) && $0.isRenderable(now: now, doneShownAt: doneShownAt[$0.sessionId]) }
     if let p = pinned, let match = alive.first(where: { $0.sessionId == p }) {
         return match
     }

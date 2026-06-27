@@ -7,28 +7,31 @@
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const { copyPrivateFile, ensurePrivateDir, writeFileAtomic } = require("./fs-utils.js");
 
 const home = os.homedir();
 const sbDir = path.join(home, ".codex", "statusbar");
 const MARKER = sbDir; // every hook command we add points inside this dir
 const updateDest = path.join(sbDir, "update.js");
 const lifecycleDest = path.join(sbDir, "lifecycle.js");
+const fsUtilsDest = path.join(sbDir, "fs-utils.js");
 const hooksPath = path.join(home, ".codex", "hooks.json");
 const node = process.execPath;
 
-fs.mkdirSync(sbDir, { recursive: true });
-fs.copyFileSync(path.join(__dirname, "update.js"), updateDest);
-fs.copyFileSync(path.join(__dirname, "lifecycle.js"), lifecycleDest);
+ensurePrivateDir(sbDir);
+copyPrivateFile(path.join(__dirname, "update.js"), updateDest);
+copyPrivateFile(path.join(__dirname, "lifecycle.js"), lifecycleDest);
+copyPrivateFile(path.join(__dirname, "fs-utils.js"), fsUtilsDest);
 
-const cmd = (evt) => `${node} ${updateDest} ${evt}`;
-const life = (evt) => `${node} ${lifecycleDest} ${evt}`;
+const cmd = (evt) => `"${node}" "${updateDest}" ${evt}`;
+const life = (evt) => `"${node}" "${lifecycleDest}" ${evt}`;
 
 let obj = { hooks: {} };
 let backedUp = false;
 if (fs.existsSync(hooksPath)) {
   obj = JSON.parse(fs.readFileSync(hooksPath, "utf8"));
   const bak = hooksPath + ".bak-statusbar";
-  if (!fs.existsSync(bak)) { fs.copyFileSync(hooksPath, bak); backedUp = true; }
+  if (!fs.existsSync(bak)) { copyPrivateFile(hooksPath, bak); backedUp = true; }
 }
 obj.hooks = obj.hooks || {};
 
@@ -55,7 +58,7 @@ addHook("PostToolUse", cmd("post"), true);
 addHook("PermissionRequest", cmd("permission"));
 addHook("Stop", cmd("stop"));
 
-fs.writeFileSync(hooksPath, JSON.stringify({ hooks: obj.hooks }, null, 2) + "\n");
+writeFileAtomic(hooksPath, JSON.stringify({ hooks: obj.hooks }, null, 2) + "\n");
 console.log("Installed status-bar hooks into", hooksPath);
 console.log("Scripts:", updateDest, "and", lifecycleDest);
 if (backedUp) console.log("Backup (first run only):", hooksPath + ".bak-statusbar");
