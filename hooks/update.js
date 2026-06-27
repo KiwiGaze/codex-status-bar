@@ -8,6 +8,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const cp = require("child_process");
+const { appendPrivateFile, ensurePrivateDir, writeFileAtomic, writePrivateFile } = require("./fs-utils.js");
 
 const dir = path.join(os.homedir(), ".codex", "statusbar");
 const sessDir = path.join(dir, "sessions.d");
@@ -67,8 +68,8 @@ process.stdin.on("end", () => {
 
   if (process.env.CODEX_STATUSBAR_DEBUG === "1") {
     try {
-      fs.mkdirSync(dir, { recursive: true });
-      fs.appendFileSync(path.join(dir, "hooks.log"),
+      ensurePrivateDir(dir);
+      appendPrivateFile(path.join(dir, "hooks.log"),
         `${new Date().toISOString()} [${event}] tool=${p.tool_name || "-"} mode=${p.permission_mode || "-"} keys=${Object.keys(p).join(",")}\n`);
     } catch {}
   }
@@ -128,17 +129,17 @@ process.stdin.on("end", () => {
     startedAt, pausedTotal, pauseStart, ts, ownerPid, ownerKind,
   };
   try {
-    fs.mkdirSync(statesDir, { recursive: true });
-    const tmp = statePath + "." + process.pid + ".tmp";
-    fs.writeFileSync(tmp, JSON.stringify(out));
-    fs.renameSync(tmp, statePath);
+    ensurePrivateDir(dir);
+    ensurePrivateDir(statesDir);
+    writeFileAtomic(statePath, JSON.stringify(out));
   } catch {}
 
   // Refresh the session liveness file (unchanged behavior).
   if (p.session_id) {
     try {
-      fs.mkdirSync(sessDir, { recursive: true });
-      fs.writeFileSync(path.join(sessDir, safeId(p.session_id)), "");
+      ensurePrivateDir(dir);
+      ensurePrivateDir(sessDir);
+      writePrivateFile(path.join(sessDir, safeId(p.session_id)), "");
     } catch {}
   }
 });

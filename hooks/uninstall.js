@@ -5,6 +5,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const cp = require("child_process");
+const { writeFileAtomic } = require("./fs-utils.js");
 
 const home = os.homedir();
 // Match every hook command we added: they all point inside ~/.codex/statusbar/
@@ -23,5 +24,5 @@ for (const evt of Object.keys(obj.hooks || {})) {
     .filter((e) => (e.hooks || []).length > 0);
   if (obj.hooks[evt].length === 0) delete obj.hooks[evt];
 }
-fs.writeFileSync(hooksPath, JSON.stringify({ hooks: obj.hooks }, null, 2) + "\n");
+writeFileAtomic(hooksPath, JSON.stringify({ hooks: obj.hooks }, null, 2) + "\n");
 console.log("Removed status-bar hooks from", hooksPath);

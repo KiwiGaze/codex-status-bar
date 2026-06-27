@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -8,6 +9,8 @@ import os from "node:os";
 const REPO = path.resolve(import.meta.dirname, "..");
 const INSTALL = path.join(REPO, "hooks", "install.js");
 const UNINSTALL = path.join(REPO, "hooks", "uninstall.js");
+const require = createRequire(import.meta.url);
+const { writeFileAtomic } = require(path.join(REPO, "hooks", "fs-utils.js"));
 
 function withTempHome() {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "csb-inst-"));
@@ -81,14 +84,64 @@ test("install creates the .bak-statusbar backup exactly once", () => {
   assert.equal(fs.readFileSync(bak, "utf8"), "SENTINEL", "backup not overwritten on re-run");
 });
 
+test("install writes private hooks config, backups, and copied hook scripts under permissive umask", () => {
+  using h = withTempHome();
+  seedHooks(h.home, OTHER_HOOKS);
+  const priorUmask = process.umask(0o022);
+  try {
+    const r = run(INSTALL, h.home);
+    assert.equal(r.status, 0, r.stderr);
+  } finally {
+    process.umask(priorUmask);
+  }
+
+  const codexDir = path.join(h.home, ".codex");
+  const statusDir = path.join(codexDir, "statusbar");
+  assert.equal(fs.statSync(statusDir).mode & 0o777, 0o700);
+  assert.equal(fs.statSync(path.join(codexDir, "hooks.json")).mode & 0o777, 0o600);
+  assert.equal(fs.statSync(path.join(codexDir, "hooks.json.bak-statusbar")).mode & 0o777, 0o600);
+  assert.equal(fs.statSync(path.join(statusDir, "update.js")).mode & 0o777, 0o600);
+  assert.equal(fs.statSync(path.join(statusDir, "lifecycle.js")).mode & 0o777, 0o600);
+  assert.equal(fs.statSync(path.join(statusDir, "fs-utils.js")).mode & 0o777, 0o600);
+});
+
+test("atomic writer preserves the original file if rename fails and removes temp files", () => {
+  using h = withTempHome();
+  const target = path.join(h.home, "hooks.json");
+  fs.writeFileSync(target, "original", { mode: 0o600 });
+  const fsModule = require("node:fs");
+  const originalRename = fsModule.renameSync;
+  fsModule.renameSync = () => { throw new Error("rename failed"); };
+  try {
+    assert.throws(() => writeFileAtomic(target, "replacement"), /rename failed/);
+  } finally {
+    fsModule.renameSync = originalRename;
+  }
+
+  assert.equal(fs.readFileSync(target, "utf8"), "original");
+  assert.deepEqual(fs.readdirSync(h.home).filter((name) => name.includes(".tmp")), []);
+
+  writeFileAtomic(target, "replacement");
+  assert.equal(fs.readFileSync(target, "utf8"), "replacement");
+  assert.equal(fs.statSync(target).mode & 0o777, 0o600);
+  assert.deepEqual(fs.readdirSync(h.home).filter((name) => name.includes(".tmp")), []);
+});
+
 test("uninstall removes only our hooks and drops emptied event arrays", () => {
   using h = withTempHome();
   seedHooks(h.home, OTHER_HOOKS);
   run(INSTALL, h.home);
-  assert.equal(run(UNINSTALL, h.home).status, 0);
+  const priorUmask = process.umask(0o022);
+  try {
+    assert.equal(run(UNINSTALL, h.home).status, 0);
+  } finally {
+    process.umask(priorUmask);
+  }
   const hooks = readHooks(h.home);
   assert.equal(ourCommands(hooks).length, 0, "no status-bar hooks remain");
   assert.ok(!("SessionStart" in hooks.hooks), "emptied SessionStart event removed");
   assert.ok(hooks.hooks.Stop.flatMap((e) => e.hooks).some((h) => h.command === "echo other"),
     "unrelated Stop hook preserved through uninstall");
+  assert.equal(fs.statSync(path.join(h.home, ".codex", "hooks.json")).mode & 0o777, 0o600);
+  assert.deepEqual(fs.readdirSync(path.join(h.home, ".codex")).filter((name) => name.includes(".tmp")), []);
 });

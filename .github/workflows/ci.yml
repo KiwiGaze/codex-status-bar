@@ -15,7 +15,7 @@ jobs:
         run: SKIP_NOTARIZE=1 ./build.sh
       - name: Swift logic tests
         run: |
-          swiftc Tests/logic_tests.swift Sources/SessionState.swift -o "$RUNNER_TEMP/csbt"
+          swiftc Tests/logic_tests.swift Sources/SessionState.swift Sources/AppSupport.swift -o "$RUNNER_TEMP/csbt"
           "$RUNNER_TEMP/csbt"
       - name: Node tests
         run: |

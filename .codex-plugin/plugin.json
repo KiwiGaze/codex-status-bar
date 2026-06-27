@@ -1,6 +1,6 @@
 {
   "name": "codex-status-bar",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Menu bar status indicator for the Codex CLI: animated spinner, elapsed timer, and an awaiting-approval dot.",
   "author": { "name": "Yijiazhen Qi" },
   "homepage": "https://github.com/KiwiGaze/codex-status-bar",

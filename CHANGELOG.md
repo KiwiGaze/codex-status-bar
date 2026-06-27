@@ -4,6 +4,14 @@ All notable changes to Codex Status Bar are documented here. The format is based
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.2.3] - 2026-06-27
+
+### Fixed
+- Expired Done confirmations no longer hide an older active Codex session in the menu bar.
+- First-launch hook installation no longer interpolates the bundled installer path through a shell command.
+- Status files, session markers, debug logs, copied hook scripts, and Codex hook config writes now use private filesystem permissions.
+- Hook config updates now replace `~/.codex/hooks.json` atomically instead of rewriting it in place.
+
 ## [0.2.2] - 2026-06-26
 
 ### Changed
@@ -43,4 +51,5 @@ All notable changes to Codex Status Bar are documented here. The format is based
 - Accent (`#4D8FFF`) / System color toggle and an elapsed-timer toggle, persisted in preferences.
 - Signed and notarized DMG so it opens without a Gatekeeper warning, plus a Codex plugin manifest for the plugin install path.
 
+[0.2.3]: https://github.com/KiwiGaze/codex-status-bar/releases/tag/v0.2.3
 [0.2.2]: https://github.com/KiwiGaze/codex-status-bar/releases/tag/v0.2.2

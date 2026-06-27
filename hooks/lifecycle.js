@@ -13,6 +13,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const cp = require("child_process");
+const { ensurePrivateDir, writePrivateFile } = require("./fs-utils.js");
 
 const BUNDLE_ID = "io.github.kiwigaze.codexstatusbar";
 const EXEC = "CodexStatusBar";
@@ -21,7 +22,8 @@ const sessDir = path.join(dir, "sessions.d");
 const event = process.argv[2];
 const testMode = process.env.CODEX_STATUSBAR_TEST === "1";
 
-fs.mkdirSync(sessDir, { recursive: true });
+ensurePrivateDir(dir);
+ensurePrivateDir(sessDir);
 
 const running = () => {
   if (testMode) return false; // headless test mode: assume app is down so the purge path runs
@@ -62,7 +64,7 @@ function run() {
       try { for (const f of fs.readdirSync(sessDir)) fs.rmSync(path.join(sessDir, f), { force: true }); } catch {}
       purgeOlder(statesDir, 3600_000); // drop state files untouched in the last hour
     }
-    try { fs.writeFileSync(path.join(sessDir, id), ""); } catch {}
+    try { writePrivateFile(path.join(sessDir, id), ""); } catch {}
     if (!testMode) cp.spawn("open", ["-g", "-b", BUNDLE_ID], { stdio: "ignore", detached: true }).unref();
   }
   process.exit(0);
