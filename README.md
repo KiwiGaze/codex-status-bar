@@ -4,7 +4,9 @@ A tiny macOS menu bar app that shows the **Codex CLI's live status**: an animate
 
 > Built so you can tab away during a long "thinking" stretch and still see, at a glance, whether Codex is working, waiting on you, or done.
 
-![Codex Status Bar showing a live thinking timer in the macOS menu bar](assets/screenshots/codex-status-bar-thinking-with-timer.png)
+| Dark mode | Light mode |
+|---|---|
+| ![Codex Status Bar thinking with timer and menu controls in dark mode](assets/screenshots/codex-status-bar-dark.png) | ![Codex Status Bar thinking with timer and menu controls in light mode](assets/screenshots/codex-status-bar-light.png) |
 
 ## What it shows
 
