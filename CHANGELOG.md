@@ -4,6 +4,17 @@ All notable changes to Codex Status Bar are documented here. The format is based
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.2.4] - 2026-06-28
+
+### Fixed
+- Pre-existing debug log files are now tightened to owner-only (`0600`) permissions whenever a line is appended, not only when the file is first created, so an older world-readable log can no longer leak session activity.
+- Half-written `.tmp` session state files are skipped while scanning for active sessions, so a state file caught mid-write is never read as a live session.
+- The bundled `fs-utils.js` helper is now part of the hook reinstall fingerprint, so changing that shared script reinstalls the hooks even when the app version string is unchanged.
+
+### Changed
+- CI pins the GitHub Actions (`checkout`, `setup-node`) to commit SHAs and disables credential persistence on checkout.
+- The build script now fails fast with a clear message when it cannot read the version from `.codex-plugin/plugin.json`, instead of producing an unversioned build.
+
 ## [0.2.3] - 2026-06-27
 
 ### Fixed
@@ -51,5 +62,6 @@ All notable changes to Codex Status Bar are documented here. The format is based
 - Accent (`#4D8FFF`) / System color toggle and an elapsed-timer toggle, persisted in preferences.
 - Signed and notarized DMG so it opens without a Gatekeeper warning, plus a Codex plugin manifest for the plugin install path.
 
+[0.2.4]: https://github.com/KiwiGaze/codex-status-bar/releases/tag/v0.2.4
 [0.2.3]: https://github.com/KiwiGaze/codex-status-bar/releases/tag/v0.2.3
 [0.2.2]: https://github.com/KiwiGaze/codex-status-bar/releases/tag/v0.2.2

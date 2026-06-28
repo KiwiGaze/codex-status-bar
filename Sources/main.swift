@@ -103,7 +103,7 @@ final class StatusController: NSObject, NSMenuDelegate {
 
     func hookInstallFingerprint(installer: String) -> String {
         let resourceDir = (installer as NSString).deletingLastPathComponent
-        let names = ["install.js", "update.js", "lifecycle.js", "uninstall.js"]
+        let names = ["install.js", "update.js", "lifecycle.js", "uninstall.js", "fs-utils.js"]
         return names.map { name in
             let path = (resourceDir as NSString).appendingPathComponent(name)
             guard let attrs = try? FileManager.default.attributesOfItem(atPath: path),
@@ -272,6 +272,7 @@ final class StatusController: NSObject, NSMenuDelegate {
         var seenIds: Set<String> = []                       // raw sessionIds loaded this pass
         if let names = try? fm.contentsOfDirectory(atPath: statesDir) {
             for name in names {
+                if name.hasSuffix(".tmp") { continue }
                 let p = (statesDir as NSString).appendingPathComponent(name)
                 guard let attrs = try? fm.attributesOfItem(atPath: p),
                       let m = attrs[.modificationDate] as? Date else { continue }

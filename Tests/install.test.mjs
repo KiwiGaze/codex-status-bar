@@ -130,7 +130,9 @@ test("atomic writer preserves the original file if rename fails and removes temp
 test("uninstall removes only our hooks and drops emptied event arrays", () => {
   using h = withTempHome();
   seedHooks(h.home, OTHER_HOOKS);
-  run(INSTALL, h.home);
+  const install = run(INSTALL, h.home);
+  assert.equal(install.status, 0, install.stderr);
+  assert.ok(readHooks(h.home).hooks.SessionStart?.length, "install added SessionStart hook");
   const priorUmask = process.umask(0o022);
   try {
     assert.equal(run(UNINSTALL, h.home).status, 0);

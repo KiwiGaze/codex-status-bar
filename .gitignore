@@ -2,3 +2,5 @@ build/
 *.dmg
 .DS_Store
 node_modules/
+.agents/
+.claude/

@@ -94,6 +94,16 @@ if let attrs = try? FileManager.default.attributesOfItem(atPath: logPath),
 } else {
     check(false, "private log permissions readable")
 }
+let oldLogPath = logDir.appendingPathComponent("old-app.log").path
+_ = FileManager.default.createFile(atPath: oldLogPath, contents: "old\n".data(using: .utf8), attributes: [.posixPermissions: 0o644])
+appendPrivateLogLine("new\n", toPath: oldLogPath)
+eq((try? String(contentsOfFile: oldLogPath, encoding: .utf8)) ?? "", "old\nnew\n", "existing private log appends lines")
+if let oldAttrs = try? FileManager.default.attributesOfItem(atPath: oldLogPath),
+   let oldPerms = oldAttrs[.posixPermissions] as? NSNumber {
+    eq(oldPerms.intValue & 0o777, 0o600, "existing private log file mode")
+} else {
+    check(false, "existing private log permissions readable")
+}
 try? FileManager.default.removeItem(at: logDir)
 
 // ---- menuOrder: pinned first (if alive), then by ts desc, capped at limit ----

@@ -6,6 +6,10 @@ cd "$(dirname "$0")"
 APP="build/Codex Status Bar.app"
 BIN="$APP/Contents/MacOS/CodexStatusBar"
 VERSION="${VERSION:-$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' .codex-plugin/plugin.json | head -1)}"
+if [[ -z "$VERSION" ]]; then
+  echo "Failed to determine VERSION from .codex-plugin/plugin.json. Set VERSION=x.y.z explicitly." >&2
+  exit 1
+fi
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
